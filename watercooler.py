@@ -20,6 +20,7 @@ import os
 import signal
 import sys
 import traceback
+import time
 from enum import IntEnum
 from typing import Any
 
@@ -259,6 +260,9 @@ async def daemon_loop(address, interval, retries):
     last_rgb_mtime = 0
     last_speed_mtime = 0
 
+    fan_last_on = pump_last_on = time.time()
+    pump_last_on_request = None
+
     while True:
         # Connect / reconnect
         if not await dev.is_connected():
@@ -343,21 +347,61 @@ async def daemon_loop(address, interval, retries):
 
         # Only send commands when values change
         try:
+            cur_time = time.time()
+
+            # ------------------------------------ fan ----------------------------------- #
+            if fan != 0:
+                fan_last_on = cur_time
+
             if fan != current_fan:
+                # turn fan off 10 seconds after requested to turn off
                 if fan == 0:
-                    await dev.fan_off()
+                    if cur_time - fan_last_on > 10:
+                        await dev.fan_off()
+                        log.info(f"Fan: {fan}% (mode={speed_mode})")
+                        current_fan = fan
+                    else:
+                        log.info(f"Requested fan off, can turn off in {10 - (cur_time - fan_last_on)} sec.")
+
                 else:
                     await dev.fan_on(fan)
-                log.info(f"Fan: {fan}% (mode={speed_mode})")
-                current_fan = fan
+                    log.info(f"Fan: {fan}% (mode={speed_mode})")
+                    current_fan = fan
+
+            # ----------------------------------- pump ----------------------------------- #
+            if pump != PumpVoltage.OFF:
+                pump_last_on = cur_time
+
             if pump != current_pump:
+
+                # turn pump off 10 seconds after requested to turn off
                 if pump == PumpVoltage.OFF:
-                    await dev.pump_off()
+                    if cur_time - pump_last_on > 10:
+                        await dev.pump_off()
+                        pump_name = pump.name if hasattr(pump, 'name') else str(pump)
+                        log.info(f"Pump: {pump_name} (mode={speed_mode})")
+                        current_pump = pump
+                    else:
+                        log.info(f"Requested pump off, can turn off in {10 - (cur_time - pump_last_on)} sec.")
+                    pump_last_on_request = None
+
                 else:
-                    await dev.pump_on(pump)
-                pump_name = pump.name if hasattr(pump, 'name') else str(pump)
-                log.info(f"Pump: {pump_name} (mode={speed_mode})")
-                current_pump = pump
+
+                    if pump_last_on_request is None:
+                        pump_last_on_request = cur_time
+                        logging.info("Requested pump on, can turn on in 5 sec.")
+
+                    # activate pump off when another request happens 5 seconds after
+                    # this prevents weird sounds caused by instant on and off during spikes
+                    elif cur_time - pump_last_on_request > 5:
+                        await dev.pump_on(pump)
+                        pump_name = pump.name if hasattr(pump, 'name') else str(pump)
+                        log.info(f"Pump: {pump_name} (mode={speed_mode})")
+                        current_pump = pump
+
+                    else:
+                        logging.info(f"Requested pump on, can turn on in {5 - (cur_time - pump_last_on_request)} sec.")
+
         except Exception as e:
             tb = ''.join(traceback.format_exception(e))
             log.error(f"BT write failed: {tb}")
