@@ -4,6 +4,8 @@ read original readme for more info https://github.com/anvme/watercooler-xmg-neo-
 
 this is a rootless version that works on Bazzite and all packages are actually already included in Bazzite so you don't need any `rpm-ostree`.
 
+also I changed it but it needs a rewrite but it works fine I think. I added customizing fan and pump curves, and in the power curve you can set the pump to be disabled completely under some temp, and I also added a delay where the pump is only enabled if temps are over the thresold for 5 seconds, so that random spikes don't trigger it.
+
 To install run `install-rootless.sh` instead of `install.sh`:
 
 ```bash
