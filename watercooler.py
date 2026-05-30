@@ -537,15 +537,16 @@ class WaterCoolerDaemon:
 
         else:
             if pump_level != self.device.pump_level:
-                await self._check_device_off(
-                    device = 'pump',
-                    max_temp_off = self.max_temp_pump_off + config["pump_tolerance_off"],
-                    cold_seconds_to_turn_off = config["cold_seconds_to_turn_pump_off"],
-                    cold_fraction_to_turn_off = config["cold_fraction_to_turn_pump_off"],
-                    set_fn = self.device.set_pump_level
-                )
+                if pump_level == 0:
+                    await self._check_device_off(
+                        device = 'pump',
+                        max_temp_off = self.max_temp_pump_off + config["pump_tolerance_off"],
+                        cold_seconds_to_turn_off = config["cold_seconds_to_turn_pump_off"],
+                        cold_fraction_to_turn_off = config["cold_fraction_to_turn_pump_off"],
+                        set_fn = self.device.set_pump_level
+                    )
 
-                if pump_level != 0 and self.device.pump_level != 0: # pyright:ignore[reportUnnecessaryComparison]
+                else:
                     if t - self.last_updated_pump > config["min_seconds_until_pump_level_change"]:
                         await self.device.set_pump_level(pump_level)
 
@@ -565,15 +566,16 @@ class WaterCoolerDaemon:
 
         else:
             if fan_speed != self.device.fan_speed:
-                await self._check_device_off(
-                    device = 'fan',
-                    max_temp_off = self.max_temp_fan_off + config["fan_tolerance_off"],
-                    cold_seconds_to_turn_off = config["cold_seconds_to_turn_fan_off"],
-                    cold_fraction_to_turn_off = config["cold_fraction_to_turn_fan_off"],
-                    set_fn = self.device.set_fan_speed
-                )
+                if fan_speed == 0:
+                    await self._check_device_off(
+                        device = 'fan',
+                        max_temp_off = self.max_temp_fan_off + config["fan_tolerance_off"],
+                        cold_seconds_to_turn_off = config["cold_seconds_to_turn_fan_off"],
+                        cold_fraction_to_turn_off = config["cold_fraction_to_turn_fan_off"],
+                        set_fn = self.device.set_fan_speed
+                    )
 
-                if fan_speed != 0 and self.device.fan_speed != 0:
+                else:
                     if t - self.last_updated_fan > config["min_seconds_until_fan_speed_change"]:
                         await self.device.set_fan_speed(fan_speed)
 
