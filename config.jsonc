@@ -1,0 +1,66 @@
+{
+  // profile from profiles folder to use
+  "profile": "default",
+
+  // updates temperatures this frequently
+  "poll_interval_seconds": 1,
+
+  // reads config, rgb config and preset this frequently
+  "config_update_frequency_seconds": 60,
+
+  // logging level for `journalctl --user -u watercooler -f`. 0-no,1-error,2-warning(unused),3-info,4-debug,5-trace
+  "logging_level": 3,
+
+  /* ---------------------- triggers to turn pump/fan on ---------------------- */
+
+  // pump/fan will be turned on after this many hot seconds
+  // reduce this to make the pump turn on quicker
+  "hot_seconds_to_turn_pump_on": 20,
+  "hot_seconds_to_turn_fan_on": 15,
+
+  // pump/fan will be turned on if current temp is above temp threshold,
+  // and this fraction of past `hot_seconds_to_turn_*_on` seconds are above temp threshold
+  "hot_fraction_to_turn_pump_on": 0.5,
+  "hot_fraction_to_turn_fan_on": 0.5,
+
+  // a separate trigger to turn fan/pump on potentially quicker than `hot_seconds_to_turn_*_on`
+  // if laptop suddenly heats up to very high temperatures
+  // tracks exponential moving average of temps with beta=1 - 1 / 10^smoothing,
+  // when it is above the temp threshold, turns fan/pump on
+  "ema_trigger_pump": 1.5,
+  "ema_trigger_fan": 1.5,
+
+  // resets pump/fan EMA to this temp when it gets turned off
+  "ema_init_pump": 30,
+  "ema_init_fan": 30,
+
+
+  /* ---------------------- triggers to turn pump/fan off --------------------- */
+
+  // pump/fan will be turned off after this many cold seconds
+  "cold_seconds_to_turn_pump_off": 15,
+  "cold_seconds_to_turn_fan_off": 20,
+
+  // pump/fan will be turned off if current temp is below temp threshold,
+  // and this fraction of past `hot_seconds_to_turn_*_on` seconds are below temp threshold
+  "cold_fraction_to_turn_pump_off": 0.75,
+  "cold_fraction_to_turn_fan_off": 0.75,
+
+
+  /* ------------------------------- tolerances ------------------------------- */
+
+  // tolerance_on means temperature needs to be threshold + this value to turn on,
+  // tolerance_off means temperature needs to be threshold + this value to turn off
+  // this prevents constant cycling between levels when the temperature is on the edge between them
+  "pump_tolerance_on": 1,
+  "pump_tolerance_off": -3,
+  "fan_tolerance_on": 1,
+  "fan_tolerance_off": -3,
+
+
+  /* ----------- mode switch smoothing when pump/fan are already on ----------- */
+
+  // fan/pump will not change speed/power levels faster than once per this many seconds
+  "min_seconds_until_pump_level_change": 10,
+  "min_seconds_until_fan_speed_change": 10
+}

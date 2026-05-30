@@ -1,79 +1,113 @@
-Connect to XMG water cooler from linux. Should work with Yaoshi 16 Ultra X6AR55, Eluktronics Hydroc G2, XMG NEO 16 E25, Dream Machines RT50X0-16EU25, PCSPECIALIST 16" Recoil, Medion Erazer Beast 16 X1 Ultimate, TUXEDO Stellaris 16 - Gen7, UNIWILL ID* Series, CyberPower Tracer IX Edge Pro LC16 (they are all the same laptop)
+# Linux LCT water cooler controller
 
-read original readme for more info https://github.com/anvme/watercooler-xmg-neo-linux
+Water cooler controller for linux that works on Bazzite (well at least Bazzite DX), compatible with XMG Oasis 1 (LCT21001) and Oasis 2 (LCT22002).
 
-this is a rootless version that works on Bazzite and all packages are actually already included in Bazzite so you don't need any `rpm-ostree`.
+Heavily based on this [watercooler-xmg-neo-linux](https://github.com/anvme/watercooler-xmg-neo-linux)
 
-also I changed it but it needs a rewrite but it works fine I think. I added customizing fan and pump curves, and in the power curve you can set the pump to be disabled completely under some temp, and I also added a delay where the pump is only enabled if temps are over the thresold for 5 seconds, so that random spikes don't trigger it.
+## What it does
 
-To install run `install-rootless.sh` instead of `install.sh`:
+Every second (configurable) it reads temperatures of your laptop and sets fan and water pump speed based on the profile. This is the default profile:
 
-```bash
-git clone https://github.com/inikishev/watercooler-xmg-neo-linux-rootles
-cd watercooler-xmg-neo-linux-rootles
-sudo bash install-rootless.sh
+```conf
+# each line is 3 integers separated by a space - (max temp, fan speed, pump level)
+# fan speed is up to 90, pump level 0 for pump off, 1 to 4 - on
+60   0  0    # ≤60°C: fan off, pump off
+75  30  1    # 60-75°C: fan 30, pump level 1
+80  45  2    # 75-80°C: fan 45, pump level 2
+85  60  3    # 80-85°C: fan 60, pump level 3
+999 90  4    # >85°C: fan max, pump max
 ```
 
-Then to start and connect to the cooler
+Note that the default profile is tuned for myself, and I use my laptop exclusively on ECO power plan (the green one), and I tuned it to be quiet and not annoy me, plus your hardware might be different, so you might need to tune it differently.
+
+Because the sound of pump turning on is quite loud, I also made it so that it doesn't quickly turn on and off during short temperature spikes. First, pump and fan are only allowed to turn on after 15 seconds of laptop being above temperature threshold, though 15 might be overkill so you can set it to 10 in the config. There is similar logic for turning them off. Secondly, a power level is only allowed to change once every 10 seconds (to avoid cycling it too quickly).
+
+The logic is actually slightly more complex, all of how it works is explained in more detail in the comments in `config.jsonc` where you can also configure everything.
+
+It also is supposed to be able to control RBG. This part is just taken from watercooler-xmg-neo-linux and I've not tested it but it should work.
+
+It also doesn't have a web UI like watercooler-xmg-neo-linux (I ran out of time this weekend and I also have too many other projects)
+
+## Installation
+
+run this command
+
+```bash
+bash install.sh
+```
+
+This copies files to `~/.local/share/watercooler/`, creates a python venv in it, and sets up a user systemd service.
+
+After install:
+
+```bash
+# Start and enable the daemon
+systemctl --user start watercooler
+
+# View logs
+journalctl --user -u watercooler -f
+
+# Make it start on login (doesnt seem to work on bazzite)
+systemctl --user enable watercooler
+```
+
+For some reason `systemctl --user enable watercooler` doesn't seem to work on bazzite, so you can add this line to `~/.bash_profile` to make it start automatically on log in (I've just thought of that fix and havent tested if it works):
+
 ```bash
 systemctl --user start watercooler
 ```
 
-To start on login (I havent tested if this works)
+## Manual run
+
+Run without installing
+
 ```bash
-systemctl --user enable watercooler
+uv run python watercooler.py daemon
 ```
 
-see status:
+Or with pip:
+
 ```bash
-systemctl --user status watercooler
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python watercooler.py daemon
 ```
 
-view logs:
-```bash
-journalctl --user -u watercooler -f
+## Configuration
+
+### config.jsonc
+
+Controls a bunch of settings. It explains all settings in its comments.
+
+To change it after installing, go to `~/.local/share/watercooler/config.jsonc`, and there you can change it. Note that it reads that file every 60 seconds by default.  So you might need to wait  a little bit for changes to apply.
+
+### Profiles
+
+If you installed it go to `~/.local/share/watercooler/profiles`. You can create more profiles by creating new files with `.conf` extension, whose file name is the name of the profile. For example `my profile.conf`. And then you can select your profile in `config.jsonc`.
+
+Each line: `max_temp fan_speed pump_level`, defining a stepwise curve. Example:
+
+```
+60   0  0    # ≤60°C: fan off, pump off
+75  30  1    # 60-75°C: fan 30, pump level 1
+80  45  2    # 75-80°C: fan 45, pump level 2
+85  60  3    # 80-85°C: fan 60, pump level 3
+999 90  4    # >85°C: fan max, pump max
 ```
 
-also this works on mechrevo cooler.
+Fan speed is in 0-90 range, where 0 means fan is off.
 
-Its installed in `~/.local/share/watercooler`. I've added that you can now edit `curve.conf` to change the fan and pump activation curve.
+Pump levels: 0 (off), 1 (7V), 2 (8V), 3 (11V), 4 (12V). I think that V means voltage or something.
 
-It looks like this by default:
+I found that fan speed 30 and pump level 1 (7V) is enough to get 10C lower temps while being quiet. And I've not actually seen any improvement from using highest fan and pump settings that are also very loud but I've also not tested it too much + I use ECO power plan which is already quite cool. If you use the other power plans you might benefit from more agressive settings.
+
+### rgb.json
+
+It should be explained in [watercooler-xmg-neo-linux](https://github.com/anvme/watercooler-xmg-neo-linux) where its copied from.
+
 ```json
-[
-    [55, 25, "7"],
-    [70, 50, "8"],
-    [85, 75, "11"],
-    [999, 90, "11"]
-]
-```
-Note that this must be a valid JSON so last entry must not have a comma after it.
-
-First number is max temperature in celsius, second is fan speed (up to 90), third is pumping power. Pumping power must be one of "0", "7", "8", "11", "12", where the bigger the number, the more power, and "0" means pump is off (I dont know why those numbers)
-
-Changes you make are applied immediately.
-
-Here is a curve to have it off when idle (under 60C) and at low power under 80C, otherwise at max power (use on ECO power plan this reduces temps by 10C while the pump is very quiet)
-```json
-[
-    [60, 0, "0"],
-    [80, 30, "7"],
-    [999, 90, "12"]
-]
+{"mode": "static", "hex": "#00ffff"}
 ```
 
-this is my current curve (im using ECO power plan so temps are always under 80 but it can still spike under some insane load)
-```json
-[
-    [60, 0, "0"],
-    [75, 30, "7"],
-    [80, 45, "8"],
-    [85, 60, "11"],
-    [999, 90, "12"]
-]
-```
-
-You can also edit `watercooler.py` in that folder if you want, and apply changes by saying this:
-```bash
-systemctl --user restart watercooler
-```
+Modes: `static`, `breathe`, `rainbow`, `breathe-rainbow`, `off`.
