@@ -103,7 +103,8 @@ class WaterCoolingDevice:
 
         self.pump_level: Literal[0,1,2,3,4] = 0
         self.fan_speed: int = 0
-
+        self.rgb_is_on = False
+        self.rgb_state: tuple[int, int, int, RGBState] = (0, 1, 1, RGBState.STATIC)
 
     async def scan(self) -> list[dict]:
         """Scan for devices matching `DEVICE_NAMES`."""
@@ -171,12 +172,27 @@ class WaterCoolingDevice:
 
 
     async def rgb_on(self, r: int, g: int, b: int, mode: RGBState):
+        self.rgb_state = (r,g,b,mode)
+        self.rgb_is_on = True
         await self._send(Commands.RGB, [0x01, r, g, b, mode])
 
+    async def lazy_rgb_on(self, r: int, g: int, b: int, mode: RGBState):
+        if self.rgb_is_on and (r,g,b,mode) == self.rgb_state: return
+        await self.rgb_on(r, g, b, mode)
+
     async def rgb_off(self):
+        self.rgb_is_on = False
         await self._send(Commands.RGB, [0x00, 0x00, 0x00, 0x00, 0x00])
 
+    async def lazy_rgb_off(self):
+        if self.rgb_is_on is False: return
+        await self.rgb_off()
+
     async def reset(self):
+        self.pump_level: Literal[0,1,2,3,4] = 0
+        self.fan_speed: int = 0
+        self.rgb_is_on = False
+        self.rgb_state = (0, 1, 1, RGBState.STATIC)
         await self._send(Commands.RESET, [0x00, 0x01, 0x00, 0x00, 0x00])
 
 # === Temperature reading ===
@@ -231,19 +247,19 @@ async def apply_rgb_conf(device: WaterCoolingDevice, conf: dict):
     mode_str = conf.get("mode", "static")
 
     if mode_str == "off":
-        await device.rgb_off()
+        await device.lazy_rgb_off()
         return
 
     rgb_mode = RGB_MODE_MAP.get(mode_str, RGBState.STATIC)
     if mode_str in ("rainbow", "breathe-rainbow"):
-        await device.rgb_on(0, 0, 0, rgb_mode)
+        await device.lazy_rgb_on(0, 0, 0, rgb_mode)
         return
 
     hex_color = conf.get("hex", "#00ffff").lstrip("#")
     r = int(hex_color[0:2], 16)
     g = int(hex_color[2:4], 16)
     b = int(hex_color[4:6], 16)
-    await device.rgb_on(r, g, b, rgb_mode)
+    await device.lazy_rgb_on(r, g, b, rgb_mode)
 
 
 def _parse_profile_entry(line: str) -> tuple[int,int,int] | tuple[None, None, None]:
@@ -584,6 +600,7 @@ class WaterCoolerDaemon:
         if self.device.fan_speed != prev_fan_speed: self.last_updated_fan = t
 
         if t - self.last_updated_rgb > config["config_update_frequency_seconds"]:
+
             await apply_rgb_conf(self.device, self.rgb_config)
 
     async def loop(self):
