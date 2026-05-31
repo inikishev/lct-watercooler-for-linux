@@ -485,6 +485,22 @@ class WaterCoolerDaemon:
             )
             return
 
+        # make sure to keep fan on if pump is on
+        if device == 'fan':
+            if self.device.pump_level != 0:
+
+                # set to appropriate speed for current pump
+                pump_entry = [p for p in self.profile if p[2] == self.device.pump_level]
+                if len(pump_entry) > 0:
+                    _, fan_speed, pump_level = pump_entry[0]
+                    if fan_speed != self.device.fan_speed:
+                        logger.debug("Not turning fan off, instead setting it to %i because pump speed is %i", fan_speed, pump_level)
+                        await self.device.set_fan_speed(fan_speed)
+                        return
+
+                logger.debug("Not turning fan off because pump is on")
+                return
+
         temps = self.temps_history[-cold_seconds_to_turn_off:]
 
         # last temp must be below threshold
