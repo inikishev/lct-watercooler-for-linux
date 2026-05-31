@@ -323,6 +323,10 @@ KEYS_IN_SECONDS_GETTER = itemgetter(
     "cold_seconds_to_turn_fan_off",
 )
 
+def maybe_add(base_temp: float | None, offset: float) -> float | None:
+    if base_temp is None: return None
+    return base_temp + offset
+
 class WaterCoolerDaemon:
 
     profile: list[tuple[int, int, PumpLevel]]
@@ -362,6 +366,8 @@ class WaterCoolerDaemon:
             # Load profile
             self.profile = load_profile(self.config["profile"])
 
+            self.max_temp_pump_off = None
+            self.max_temp_fan_off = None
             for max_temp, fan_speed, pump_level in self.profile:
                 if pump_level == 0: self.max_temp_pump_off = max_temp
                 if fan_speed == 0: self.max_temp_fan_off = max_temp
@@ -560,7 +566,7 @@ class WaterCoolerDaemon:
                 await self._check_device_on(
                     device = 'pump',
                     level = pump_level,
-                    max_temp_off = self.max_temp_pump_off + config["pump_tolerance_on"],
+                    max_temp_off = maybe_add(self.max_temp_pump_off, config["pump_tolerance_on"]),
                     t_ema = self.t_ema_pump,
                     hot_seconds_to_turn_on = config["hot_seconds_to_turn_pump_on"],
                     hot_fraction_to_turn_on = config["hot_fraction_to_turn_pump_on"],
@@ -572,7 +578,7 @@ class WaterCoolerDaemon:
                 if pump_level == 0:
                     await self._check_device_off(
                         device = 'pump',
-                        max_temp_off = self.max_temp_pump_off + config["pump_tolerance_off"],
+                        max_temp_off = maybe_add(self.max_temp_pump_off, config["pump_tolerance_off"]),
                         cold_seconds_to_turn_off = config["cold_seconds_to_turn_pump_off"],
                         cold_fraction_to_turn_off = config["cold_fraction_to_turn_pump_off"],
                         set_fn = self.device.set_pump_level
@@ -589,7 +595,7 @@ class WaterCoolerDaemon:
                 await self._check_device_on(
                     device = 'fan',
                     level = fan_speed,
-                    max_temp_off = self.max_temp_fan_off + config["fan_tolerance_on"],
+                    max_temp_off = maybe_add(self.max_temp_fan_off, config["fan_tolerance_on"]),
                     t_ema = self.t_ema_fan,
                     hot_seconds_to_turn_on = config["hot_seconds_to_turn_fan_on"],
                     hot_fraction_to_turn_on = config["hot_fraction_to_turn_fan_on"],
@@ -601,7 +607,7 @@ class WaterCoolerDaemon:
                 if fan_speed == 0:
                     await self._check_device_off(
                         device = 'fan',
-                        max_temp_off = self.max_temp_fan_off + config["fan_tolerance_off"],
+                        max_temp_off = maybe_add(self.max_temp_fan_off, config["fan_tolerance_off"]),
                         cold_seconds_to_turn_off = config["cold_seconds_to_turn_fan_off"],
                         cold_fraction_to_turn_off = config["cold_fraction_to_turn_fan_off"],
                         set_fn = self.device.set_fan_speed
