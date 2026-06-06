@@ -3,7 +3,7 @@
   "profile": "default",
 
   // updates temperatures this frequently
-  "poll_interval_seconds": 1,
+  "poll_interval_seconds": 2,
 
   // reads config, rgb config and preset this frequently
   "config_update_frequency_seconds": 60,
@@ -16,7 +16,7 @@
   // pump/fan will be turned on after this many hot seconds
   // reduce this to make the pump turn on quicker
   "hot_seconds_to_turn_pump_on": 20,
-  "hot_seconds_to_turn_fan_on": 15,
+  "hot_seconds_to_turn_fan_on": 20,
 
   // pump/fan will be turned on if current temp is above temp threshold,
   // and this fraction of past `hot_seconds_to_turn_*_on` seconds are above temp threshold
@@ -62,5 +62,5 @@
 
   // fan/pump will not change speed/power levels faster than once per this many seconds
   "min_seconds_until_pump_level_change": 10,
-  "min_seconds_until_fan_speed_change": 10
+  "min_seconds_until_fan_speed_change": 5
 }
