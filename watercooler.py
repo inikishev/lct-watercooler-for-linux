@@ -530,6 +530,11 @@ class WaterCoolerDaemon:
 
         config, profile = self._load_config(t)
 
+        if not config["enabled"]:
+            logger.debug("watercooler manager is disabled")
+            await asyncio.sleep(config["config_update_frequency_seconds"])
+            return
+            
         while not await self.device.is_connected():
             await self._connect()
 

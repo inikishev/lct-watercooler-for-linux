@@ -1,4 +1,7 @@
 {
+  // whether watercooler manager is enabled at all
+  "enabled": true,
+
   // profile from profiles folder to use
   "profile": "default",
 
