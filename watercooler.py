@@ -1,6 +1,7 @@
 """Water cooler service heavily based on https://github.com/anvme/watercooler-xmg-neo-linux"""
 import argparse
 import asyncio
+import glob
 import json
 import logging
 import os
@@ -197,8 +198,8 @@ class WaterCoolingDevice:
 
 # === Temperature reading ===
 
-def read_cpu_temp() -> tuple[float | None, str]:
-    """Read highest CPU temp in celsius from thermal zones."""
+def read_temps(b: float = -10) -> tuple[float | None, str]:
+    """Read highest CPU temp in celsius from thermal zones, optionally factoring in GPU temp."""
     temps = []
     thermal_base = "/sys/class/thermal"
     if not os.path.isdir(thermal_base):
@@ -232,10 +233,52 @@ def read_cpu_temp() -> tuple[float | None, str]:
     for keyword in ["pkg", "cpu", "core", "soc"]:
         for zone_type, t in temps:
             if keyword in zone_type:
-                return t, zone_type
+                cpu_temp = t
+                break
+        else:
+            continue
+        break
+    else:
+        # fallback: highest temp
+        cpu_temp = max(t for _, t in temps)
 
-    # fallback: highest temp
-    return max(t for _, t in temps), "Fallback to highest temp"
+    gpu_temp = _read_gpu_temp()
+    if gpu_temp is not None:
+        cpu_temp = max(cpu_temp, gpu_temp + b)
+        return cpu_temp, f"CPU {cpu_temp:.1f} (GPU {gpu_temp:.1f} + {b})"
+
+    return cpu_temp, "CPU only"
+
+
+def _read_gpu_temp() -> float | None:
+    """Read GPU temp in celsius. Returns None if unavailable.
+
+    Tries nvidia-smi first, falls back to DRM hwmon (AMD/Intel).
+    """
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=2, check=False,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return float(result.stdout.strip().split()[0])
+    except (OSError, subprocess.SubprocessError, ValueError):
+        pass
+
+    # fallback: DRM hwmon (e.g. amdgpu/i915), takes max across cards/sensors
+    try:
+        temps = []
+        for path in glob.glob("/sys/class/drm/card*/device/hwmon/hwmon*/temp*_input"):
+            with open(path, "r", encoding='utf-8') as f:
+                t = int(f.read().strip()) / 1000.0
+                if t > 0:
+                    temps.append(t)
+        if temps:
+            return max(temps)
+    except (IOError, ValueError):
+        pass
+
+    return None
 
 
 def read_rgb_conf() -> dict[str, Any]:
@@ -534,7 +577,7 @@ class WaterCoolerDaemon:
             logger.debug("watercooler manager is disabled")
             await asyncio.sleep(config["config_update_frequency_seconds"])
             return
-            
+
         while not await self.device.is_connected():
             await self._connect()
 
@@ -543,7 +586,7 @@ class WaterCoolerDaemon:
             C = 0
 
         else:
-            C, msg = read_cpu_temp()
+            C, msg = read_temps(config.get("gpu_temp_offset", -10))
             if C is None:
                 log_error(f"Could not read CPU temperature:\n{msg}")
                 C = 0

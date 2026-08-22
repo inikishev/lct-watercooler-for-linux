@@ -65,5 +65,12 @@
 
   // fan/pump will not change speed/power levels faster than once per this many seconds
   "min_seconds_until_pump_level_change": 10,
-  "min_seconds_until_fan_speed_change": 5
+  "min_seconds_until_fan_speed_change": 5,
+
+
+  /* ------------------------------ GPU temp ------------------------------- */
+
+  // offset added to GPU temp before taking the max with CPU temp,
+  // because GPU temps usually read lower than CPU
+  "gpu_temp_offset": -10
 }
