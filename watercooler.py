@@ -590,6 +590,8 @@ class WaterCoolerDaemon:
             if C is None:
                 log_error(f"Could not read CPU temperature:\n{msg}")
                 C = 0
+            else:
+                logger.log(1, msg)
 
         self._update_emas(C, config)
 

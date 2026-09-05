@@ -71,6 +71,5 @@
   /* ------------------------------ GPU temp ------------------------------- */
 
   // offset added to GPU temp before taking the max with CPU temp,
-  // because GPU temps usually read lower than CPU
-  "gpu_temp_offset": -10
+  "gpu_temp_offset": 12
 }
